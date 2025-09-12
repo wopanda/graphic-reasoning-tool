@@ -747,6 +747,8 @@ const mindmapMarkdown = `
                 let startX, startY, startTranslateX, startTranslateY;
                 let lastTouchDistance = 0;
                 let initialScale = 1;
+                let touchStartTime = 0;
+                let hasMoved = false;
 
                 // 获取事件坐标的统一函数
                 const getEventCoords = (e) => {
@@ -756,29 +758,65 @@ const mindmapMarkdown = `
                     return { x: e.clientX, y: e.clientY };
                 };
 
+                // 检查是否可以开始拖动（避免在卡片上拖动）
+                const canStartDrag = (target) => {
+                    return target === this.canvas || 
+                           target === this.svg || 
+                           target === this.container ||
+                           target.classList.contains('mindmap-container') ||
+                           target.classList.contains('mindmap-canvas') ||
+                           target.classList.contains('connections-svg');
+                };
+
                 // 开始拖动的统一处理函数
                 const startDrag = (e) => {
-                    if (e.target === this.canvas || e.target === this.svg) {
-                        e.preventDefault();
+                    if (canStartDrag(e.target)) {
                         isDragging = true;
+                        hasMoved = false;
+                        touchStartTime = Date.now();
                         const coords = getEventCoords(e);
                         startX = coords.x;
                         startY = coords.y;
                         startTranslateX = this.translateX;
                         startTranslateY = this.translateY;
-                        this.canvas.classList.add('dragging');
-                        this.svg.classList.add('dragging');
+                        
+                        // 对于触摸事件，延迟添加拖动状态，以免影响卡片点击
+                        if (e.type.startsWith('touch')) {
+                            setTimeout(() => {
+                                if (isDragging && hasMoved) {
+                                    this.canvas.classList.add('dragging');
+                                    this.svg.classList.add('dragging');
+                                }
+                            }, 100);
+                        } else {
+                            this.canvas.classList.add('dragging');
+                            this.svg.classList.add('dragging');
+                        }
                     }
                 };
 
                 // 拖动过程的统一处理函数
                 const doDrag = (e) => {
                     if (isDragging) {
-                        e.preventDefault();
                         const coords = getEventCoords(e);
-                        this.translateX = startTranslateX + (coords.x - startX);
-                        this.translateY = startTranslateY + (coords.y - startY);
-                        this.updateTransform();
+                        const deltaX = coords.x - startX;
+                        const deltaY = coords.y - startY;
+                        
+                        // 检测是否真的在移动（阈值为5像素）
+                        if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+                            hasMoved = true;
+                            e.preventDefault();
+                            
+                            this.translateX = startTranslateX + deltaX;
+                            this.translateY = startTranslateY + deltaY;
+                            this.updateTransform();
+                            
+                            // 如果还没有添加拖动状态，现在添加
+                            if (!this.canvas.classList.contains('dragging')) {
+                                this.canvas.classList.add('dragging');
+                                this.svg.classList.add('dragging');
+                            }
+                        }
                     }
                 };
 
@@ -788,9 +826,14 @@ const mindmapMarkdown = `
                         isDragging = false;
                         this.canvas.classList.remove('dragging');
                         this.svg.classList.remove('dragging');
-                        setTimeout(() => {
-                            this.updateAllConnectionPositions();
-                        }, 50);
+                        
+                        if (hasMoved) {
+                            setTimeout(() => {
+                                this.updateAllConnectionPositions();
+                            }, 50);
+                        }
+                        
+                        hasMoved = false;
                     }
                 };
 
@@ -799,13 +842,24 @@ const mindmapMarkdown = `
                 document.addEventListener('mousemove', doDrag);
                 document.addEventListener('mouseup', endDrag);
 
-                // 触摸事件
-                this.canvas.addEventListener('touchstart', (e) => {
+                // 触摸事件 - 改进版本，绑定到document以确保全局捕获
+                document.addEventListener('touchstart', (e) => {
+                    // 检查触摸是否在画布区域内
+                    const canvasRect = this.canvas.getBoundingClientRect();
+                    const touch = e.touches[0];
+                    const isInCanvas = touch.clientX >= canvasRect.left && 
+                                     touch.clientX <= canvasRect.right && 
+                                     touch.clientY >= canvasRect.top && 
+                                     touch.clientY <= canvasRect.bottom;
+                    
+                    if (!isInCanvas) return;
+                    
                     if (e.touches.length === 1) {
-                        // 单指触摸：拖动
+                        // 单指触摸：可能是拖动或点击
                         startDrag(e);
                     } else if (e.touches.length === 2) {
                         // 双指触摸：准备缩放
+                        endDrag(); // 先结束可能的拖动
                         const touch1 = e.touches[0];
                         const touch2 = e.touches[1];
                         lastTouchDistance = Math.sqrt(
@@ -817,14 +871,13 @@ const mindmapMarkdown = `
                     }
                 }, { passive: false });
 
-                this.canvas.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    
+                document.addEventListener('touchmove', (e) => {
                     if (e.touches.length === 1) {
                         // 单指移动：拖动
                         doDrag(e);
                     } else if (e.touches.length === 2) {
                         // 双指移动：缩放
+                        e.preventDefault();
                         const touch1 = e.touches[0];
                         const touch2 = e.touches[1];
                         const currentDistance = Math.sqrt(
@@ -841,7 +894,7 @@ const mindmapMarkdown = `
                     }
                 }, { passive: false });
 
-                this.canvas.addEventListener('touchend', (e) => {
+                document.addEventListener('touchend', (e) => {
                     if (e.touches.length === 0) {
                         // 所有手指都离开了
                         endDrag();
@@ -852,15 +905,24 @@ const mindmapMarkdown = `
                             this.updateAllConnectionPositions();
                         }, 100);
                     } else if (e.touches.length === 1) {
-                        // 从双指变成单指，重新开始拖动
+                        // 从双指变成单指
                         lastTouchDistance = 0;
-                        endDrag();
-                        setTimeout(() => startDrag(e), 10);
+                        clearTimeout(this.scaleTimeout);
+                        this.scaleTimeout = setTimeout(() => {
+                            this.svg.classList.remove('dragging');
+                            this.updateAllConnectionPositions();
+                        }, 100);
+                        // 重新开始单指拖动
+                        setTimeout(() => {
+                            if (e.touches.length === 1) {
+                                startDrag(e);
+                            }
+                        }, 10);
                     }
                 }, { passive: false });
 
                 // 阻止触摸时的默认行为（如页面滚动）
-                this.canvas.addEventListener('touchcancel', endDrag, { passive: false });
+                document.addEventListener('touchcancel', endDrag, { passive: false });
 
                 // 鼠标滚轮缩放支持
                 this.canvas.addEventListener('wheel', (e) => {
