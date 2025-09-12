@@ -1,0 +1,1589 @@
+<script>
+// ====== 思维导图数据结构（Markdown格式） ======
+// 直接在第一行修改，保存后刷新页面即可生效
+
+const mindmapMarkdown = `
+- 🎯 图形推理决策
+    - 🚀 构成相似
+      - 👉 元素完全相同 ⇒ [位置规律]
+        - 移动类型：平移、旋转、翻转
+        - 移动载体 (背景格)
+          - 宫格类：优先“内外分离”，善用“大面积区域法”
+          - 非宫格类：自行构建参照系，遵循“就近原则”
+        - 特殊情况：有元素“不动” ⇒ [相邻比较]
+      - 👉 元素部分相同 ⇒ [样式规律]
+        - 黑白块 (外框一致) ⇒ [黑白运算] (技巧：找“相同区域”秒杀)
+        - 线条 (外框不一) ⇒ [加减同异] (核心：优先验证“求异”)
+        - 有孤立“小标记” ⇒ [标记规律] (分析标记与主体/标记之间的关系)
+    - 🚀 构成各异
+      - 👉 优先查 [属性规律] (宏观特征)
+        - 对称 (最高优先级)：轴/中心对称 (注意内部填充)
+        - 曲直 (触发：一半以上图形含曲线)
+        - 开闭 (触发：“生活化”图形)
+      - 👉 无明显属性，则查 [数量规律]
+        - 强特征优先 (看到即数)
+          - “日/田/五角星/圆相交” → [笔画]
+          - “图形散乱、不连接” → [元素]
+          - “十字/矩形/直角三角” → [角(直角)]
+          - “每幅图都有曲线” → [线(曲/直/交点)]
+          - “每幅图都由2个元素构成” → [图形关系]
+        - 兜底策略 (无强特征时按序排查)
+          - 1. 数 [面] (封闭空间)
+          - 2. 数 [笔画]
+          - 3. 数 [点] (交点/端点)
+      - 👉 [黑白块] 特殊决策模块
+        - 规则/好看 → 优先查 [对称轴]
+        - 数量少/面积大 → 优先查 [位置规律]
+        - 分堆少 → 优先查 [部分数]
+        - 分堆多/九宫格 → 优先查 [黑白运算]
+        - (最后才考虑) → 黑块/白块 [个数]
+`.trim();
+</script>
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>石板 - 图形推理思维导图</title>
+    <style>
+        /* 基础重置与字体 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333333;
+            line-height: 1.6;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* 主容器 */
+        .slate {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* 思维导图画布 */
+        .mindmap-canvas {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: grab;
+            overflow: hidden;
+        }
+
+        .mindmap-canvas.dragging {
+            cursor: grabbing;
+        }
+
+        /* 思维导图容器 - 简化的横向布局 */
+        .mindmap-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
+            transition: transform 0.3s ease-out;
+            padding: 60px;
+        }
+
+        /* 卡片样式 - Gingko风格 */
+        .card {
+            position: absolute;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e1e8ed;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 240px;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            border-color: #007AFF;
+        }
+
+        .card.active {
+            border-color: #007AFF;
+            box-shadow: 0 4px 20px rgba(0, 122, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .card.active::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: linear-gradient(135deg, #007AFF, #0056CC);
+        }
+
+        /* 卡片内容 */
+        .card-content {
+            padding: 16px 32px 16px 20px; /* 减少右侧内边距到32px，让文字和数字更近 */
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* 根节点卡片 */
+        .card.root-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            max-width: 280px;
+        }
+
+        .card.root-card .card-content {
+            font-size: 18px;
+            font-weight: 600;
+            padding: 24px 40px 24px 28px; /* 减少根节点右侧内边距 */
+            text-align: center;
+            color: white;
+        }
+
+        .card.root-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        /* 一级分支卡片 */
+        .card.branch-card {
+            background: linear-gradient(135deg, #a8edea, #fed6e3);
+            border: none;
+        }
+
+        .card.branch-card .card-content {
+            font-size: 15px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .card.branch-card.active {
+            background: linear-gradient(135deg, #81e6d9, #fbb6ce);
+        }
+
+        /* 叶节点卡片 */
+        .card.leaf-card {
+            background: white;
+        }
+
+        .card.leaf-card .card-content {
+            font-size: 13px;
+            font-weight: 400;
+            color: #4a5568;
+        }
+
+        /* 探索状态的卡片 - 背景层 */
+        .card.exploration {
+            opacity: 0.4;
+            background: #F8F9FA;
+            border: 1px solid #E5E7EB;
+            transform: scale(0.95);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        .card.exploration .card-content {
+            color: #9CA3AF;
+            font-size: 12px;
+        }
+
+        /* 探索卡片悬停效果 */
+        .card.exploration:hover,
+        .card.exploration.highlighted {
+            opacity: 0.8;
+            transform: scale(1);
+            background: #F3F4F6;
+            border-color: #9CA3AF;
+            z-index: 5;
+        }
+
+        .card.exploration:hover .card-content,
+        .card.exploration.highlighted .card-content {
+            color: #6B7280;
+            font-size: 13px;
+        }
+
+        /* 解决方案状态的卡片 - 结果层（最高优先级） */
+        .card.solution {
+            background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+            border: 2px solid #F59E0B;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3);
+            z-index: 10;
+            transform: scale(1.02);
+        }
+
+        .card.solution .card-content {
+            color: #92400E;
+            font-weight: 600;
+        }
+
+        /* 当前活跃卡片 - 交互层 */
+        .card.active {
+            z-index: 8;
+        }
+
+        /* 键盘焦点状态 */
+        .card.keyboard-focused {
+            outline: 3px solid #007AFF;
+            outline-offset: 2px;
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 24px rgba(0, 122, 255, 0.25);
+            transition: all 0.2s ease;
+            z-index: 9;
+        }
+
+        .card.keyboard-focused.exploration {
+            outline-color: #6B7280;
+            box-shadow: 0 6px 24px rgba(107, 114, 128, 0.25);
+        }
+
+        .card.keyboard-focused.solution {
+            outline-color: #F59E0B;
+            box-shadow: 0 6px 24px rgba(245, 158, 11, 0.4);
+        }
+
+        /* 展开指示器 */
+        .expand-indicator {
+            position: absolute;
+            right: 8px; /* 稍微向右移动一点 */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px; /* 稍微减小尺寸 */
+            height: 22px;
+            border-radius: 50%;
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px; /* 恢复原来的字体大小 */
+            font-weight: bold;
+            color: #718096;
+            transition: all 0.3s ease;
+            z-index: 10; /* 确保指示器在最上层 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* 添加轻微阴影 */
+        }
+
+        .card:hover .expand-indicator {
+            background: #007AFF;
+            border-color: #007AFF;
+            color: white;
+        }
+
+        .card.active .expand-indicator {
+            background: #007AFF;
+            border-color: #007AFF;
+            color: white;
+        }
+
+        /* 连接线容器 */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5; /* 降低基础层级，让卡片可以显示在连线上方 */
+            opacity: 0; /* 初始隐藏，等用户交互后再显示 */
+            transition: opacity 0.3s ease;
+            transform-origin: 0 0; /* 确保变换原点与容器一致 */
+            overflow: visible; /* 确保连接线不会被裁剪 */
+        }
+
+        .connections-svg.visible {
+            opacity: 1; /* 用户交互后显示 */
+        }
+
+        /* 拖动时隐藏连接线 */
+        .connections-svg.dragging {
+            opacity: 0;
+            transition: opacity 0.1s ease;
+        }
+
+        /* 可见的连接线样式 */
+        .connection-line {
+            fill: none;
+            stroke: #e2e8f0;
+            stroke-width: 2;
+            opacity: 0; /* 默认隐藏，只有visible或active时才显示 */
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .connection-line.visible {
+            opacity: 0.8;
+            stroke: #cbd5e0;
+            stroke-width: 3;
+        }
+
+        /* 当前活跃路径样式 - 交互层 */
+        .connection-line.active {
+            opacity: 1;
+            stroke: #007AFF;
+            stroke-width: 4;
+            filter: drop-shadow(0 2px 8px rgba(0, 122, 255, 0.3));
+            animation: pathPulse 2s ease-in-out infinite;
+            z-index: 8;
+        }
+
+        /* 探索路径样式 - 背景层 */
+        .connection-line.exploration {
+            opacity: 0.25;
+            stroke: #9CA3AF;
+            stroke-width: 1.5;
+            stroke-dasharray: 4, 4;
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        /* 探索路径悬停效果 */
+        .connection-line.exploration:hover,
+        .connection-line.exploration.highlighted {
+            opacity: 0.6;
+            stroke: #6B7280;
+            stroke-width: 3;
+            z-index: 5;
+            stroke-dasharray: 6, 3;
+        }
+
+        /* 解决方案路径样式 - 结果层（最高优先级） */
+        .connection-line.solution {
+            opacity: 1;
+            stroke: #F59E0B;
+            stroke-width: 5;
+            filter: drop-shadow(0 3px 12px rgba(245, 158, 11, 0.4));
+            animation: solutionPulse 3s ease-in-out infinite;
+            z-index: 10;
+        }
+
+        /* 路径脉动动画 */
+        @keyframes pathPulse {
+            0%, 100% {
+                stroke-width: 4;
+            opacity: 1;
+            }
+            50% {
+                stroke-width: 5;
+                opacity: 0.8;
+            }
+        }
+
+        /* 解决方案路径脉动动画 */
+        @keyframes solutionPulse {
+            0%, 100% {
+                stroke-width: 5;
+                opacity: 1;
+            }
+            50% {
+                stroke-width: 6;
+                opacity: 0.9;
+                filter: drop-shadow(0 4px 16px rgba(245, 158, 11, 0.6));
+            }
+        }
+
+
+        /* 隐藏状态 */
+        .card.hidden {
+            opacity: 0;
+            transform: scale(0.8) translateY(10px);
+            pointer-events: none;
+        }
+
+        /* 页面标题（隐藏但保持语义性） */
+        .page-title {
+            position: absolute;
+            left: -9999px;
+            font-size: 1px;
+        }
+
+        /* 专注模式：移除所有不必要的视觉干扰 */
+        :focus {
+            outline: none;
+        }
+
+        ::selection {
+            background-color: rgba(0, 122, 255, 0.2);
+        }
+
+        /* 控制面板 */
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            color: #4a5568;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .control-btn:hover {
+            background: #f7fafc;
+            border-color: #007AFF;
+            color: #007AFF;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 复制按钮特殊样式 */
+        #copyBtn {
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+
+        #copyBtn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            border: none;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+        }
+
+        /* 复制成功动画 */
+        #copyBtn.copied {
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            animation: copySuccess 0.6s ease;
+        }
+
+        @keyframes copySuccess {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .mindmap-container {
+                padding: 20px;
+            }
+            
+            .column {
+                min-width: 200px;
+                margin-right: 20px;
+            }
+            
+            .card {
+                max-width: 200px;
+            }
+            
+            .card-content {
+                padding: 12px 28px 12px 16px; /* 移动端减少右侧内边距 */
+                font-size: 13px;
+            }
+            
+            .card.root-card .card-content {
+                font-size: 16px;
+                padding: 18px 36px 18px 20px; /* 移动端根节点减少右侧内边距 */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="slate">
+        <h1 class="page-title">图形推理思维导图</h1>
+        
+        <!-- 控制面板 -->
+        <div class="controls">
+            <button class="control-btn" onclick="resetMindmap()">重置 (F5)</button>
+            <button class="control-btn" onclick="centerView()">居中</button>
+            <button class="control-btn path-action-btn" onclick="tryAnotherPath()" id="tryAnotherBtn">换路</button>
+            <button class="control-btn path-action-btn" onclick="confirmSolution()" id="confirmBtn">确认解法</button>
+            <button class="control-btn path-action-btn" onclick="copySolutionPath()" id="copyBtn" style="display: none;">📋 复制解法</button>
+        </div>
+
+        <!-- 思维导图画布 -->
+        <div class="mindmap-canvas" id="mindmapCanvas">
+            <svg class="connections-svg" id="connectionSvg">
+                <defs>
+                    <!-- 激活路径渐变 -->
+                    <linearGradient id="activeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#007AFF;stop-opacity:1" />
+                        <stop offset="50%" style="stop-color:#0056CC;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#007AFF;stop-opacity:1" />
+                    </linearGradient>
+                    
+                    <!-- 非激活路径渐变 -->
+                    <linearGradient id="inactiveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#cbd5e0;stop-opacity:0.6" />
+                        <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:0.6" />
+                    </linearGradient>
+                    
+                    <!-- 默认连接线渐变 -->
+                    <linearGradient id="connectionGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#f1f5f9;stop-opacity:0.8" />
+                        <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:0.8" />
+                    </linearGradient>
+                    
+                    <!-- 箭头标记 -->
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto" markerUnits="strokeWidth">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#007AFF" />
+                    </marker>
+                    
+                    <!-- 激活箭头 -->
+                    <marker id="activeArrow" markerWidth="12" markerHeight="8" 
+                            refX="11" refY="4" orient="auto" markerUnits="strokeWidth">
+                        <polygon points="0 0, 12 4, 0 8" fill="url(#activeGradient)" 
+                                 filter="drop-shadow(0 2px 4px rgba(0, 122, 255, 0.3))" />
+                    </marker>
+                </defs>
+            </svg>
+            <div class="mindmap-container" id="mindmapContainer">
+                <!-- 思维导图节点将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 思维导图数据已定义在文件开头
+
+        // Markdown解析器：将markdown格式转换为嵌套对象
+        function parseMarkdownToMindmap(markdown) {
+            const lines = markdown.split('\n').filter(line => line.trim());
+            const root = { id: 'root', text: '', children: [] };
+            const stack = [{ node: root, level: -1 }];
+            let idCounter = 0;
+            
+            lines.forEach(line => {
+                // 计算缩进级别
+                const match = line.match(/^(\s*)-\s*(.+)$/);
+                if (!match) return;
+                
+                const indentStr = match[1];
+                const text = match[2].trim();
+                const level = indentStr.length / 2; // 每2个空格为一级
+                
+                // 生成唯一ID
+                const id = text === '图形推理思考' ? 'root' : `node_${++idCounter}`;
+                
+                const newNode = {
+                    id: id,
+                    text: text,
+                    children: []
+                };
+                
+                // 如果是根节点，设置文本
+                if (level === 0) {
+                    root.text = text;
+                    root.id = 'root';
+                    return;
+                }
+                
+                // 找到正确的父节点
+                while (stack.length > 0 && stack[stack.length - 1].level >= level) {
+                    stack.pop();
+                }
+                
+                if (stack.length > 0) {
+                    const parent = stack[stack.length - 1].node;
+                    parent.children.push(newNode);
+                }
+                
+                // 将当前节点推入栈
+                stack.push({ node: newNode, level: level });
+            });
+            
+            return root;
+        }
+        
+        // 解析markdown数据为思维导图结构
+        const mindmapData = parseMarkdownToMindmap(mindmapMarkdown);
+
+        class GingkoMindmapRenderer {
+            constructor() {
+                this.container = document.getElementById('mindmapContainer');
+                this.svg = document.getElementById('connectionSvg');
+                this.canvas = document.getElementById('mindmapCanvas');
+                this.currentPath = ['root']; // 当前活跃路径
+                this.explorationPaths = []; // 存储所有探索路径
+                this.solutionPath = null; // 最终确定的解题路径
+                this.cards = new Map(); // 存储卡片信息
+                this.scale = 1;
+                this.translateX = 0;
+                this.translateY = 0;
+                this.pathMode = 'exploring'; // 'exploring' | 'confirmed'
+                this.keyboardFocusedCard = null; // 当前键盘焦点的卡片ID
+                this.positionUpdatePending = false; // 连接线位置更新防抖标志
+                
+                this.setupCanvas();
+                this.setupKeyboardNavigation();
+                this.render();
+            }
+
+            setupCanvas() {
+                let isDragging = false;
+                let startX, startY, startTranslateX, startTranslateY;
+
+                this.canvas.addEventListener('mousedown', (e) => {
+                    if (e.target === this.canvas || e.target === this.svg) {
+                        isDragging = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        startTranslateX = this.translateX;
+                        startTranslateY = this.translateY;
+                        this.canvas.classList.add('dragging');
+                        // 拖动开始时隐藏连接线
+                        this.svg.classList.add('dragging');
+                    }
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        this.translateX = startTranslateX + (e.clientX - startX);
+                        this.translateY = startTranslateY + (e.clientY - startY);
+                        this.updateTransform();
+                        // SVG现在跟随容器变换，不需要手动更新连接线位置
+                    }
+                });
+
+                document.addEventListener('mouseup', () => {
+                    if (isDragging) {
+                    isDragging = false;
+                    this.canvas.classList.remove('dragging');
+                        // 拖动结束时恢复连接线显示并更新位置
+                        this.svg.classList.remove('dragging');
+                        setTimeout(() => {
+                            this.updateAllConnectionPositions();
+                        }, 50); // 等待CSS过渡完成后更新连接线位置
+                    }
+                });
+
+                // 缩放支持
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                    this.scale *= delta;
+                    this.scale = Math.max(0.5, Math.min(2, this.scale));
+                    
+                    // 缩放时短暂隐藏连接线
+                    this.svg.classList.add('dragging');
+                    
+                    this.updateTransform();
+                    
+                    // 缩放结束后恢复连接线
+                    clearTimeout(this.scaleTimeout);
+                    this.scaleTimeout = setTimeout(() => {
+                        this.svg.classList.remove('dragging');
+                        this.updateAllConnectionPositions();
+                    }, 100); // 等待缩放稳定
+                });
+            }
+
+            setupKeyboardNavigation() {
+                document.addEventListener('keydown', (e) => {
+                    // 如果已确认解决方案，不允许键盘导航
+                    if (this.pathMode === 'confirmed') return;
+                    
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            e.preventDefault();
+                            this.navigateToSibling('up');
+                            break;
+                        case 'ArrowDown':
+                            e.preventDefault();
+                            this.navigateToSibling('down');
+                            break;
+                        case 'ArrowLeft':
+                            e.preventDefault();
+                            this.navigateToParent();
+                            break;
+                        case 'ArrowRight':
+                            e.preventDefault();
+                            this.navigateToChild();
+                            break;
+                        case 'Enter':
+                            e.preventDefault();
+                            this.selectFocusedCard();
+                            break;
+                        case 'Escape':
+                            e.preventDefault();
+                            this.clearKeyboardFocus();
+                            break;
+                    }
+                });
+
+                // 鼠标点击时设置键盘焦点（但不清除，让键盘导航更连贯）
+                this.canvas.addEventListener('click', (e) => {
+                    const clickedCard = e.target.closest('.card');
+                    if (clickedCard && !clickedCard.classList.contains('hidden')) {
+                        this.setKeyboardFocus(clickedCard.dataset.nodeId);
+                    }
+                });
+            }
+
+            updateTransform() {
+                const transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
+                this.container.style.transform = transform;
+                // SVG也需要跟随相同的变换，这样连接线坐标系统就能与卡片保持一致
+                this.svg.style.transform = transform;
+            }
+
+            render() {
+                console.log('=== Gingko渲染开始 ===');
+                this.container.innerHTML = '';
+                this.svg.innerHTML = '';
+                this.cards.clear();
+                this.currentPath = ['root'];
+                
+                // 创建Gingko风格的列布局
+                this.createGingkoLayout();
+                
+                // 先居中画布，避免首次绘制位置偏差
+                this.centerView();
+                
+                // 更新显示状态（在居中之后）
+                this.updateDisplay();
+                
+                // 首次渲染不显示连接线，等用户交互后再显示
+                this.svg.classList.remove('visible');
+            }
+
+            createGingkoLayout() {
+                // 递归创建所有卡片，使用绝对定位
+                this.createCardsRecursively(mindmapData, 0, 100, 100);
+            }
+
+            createCardsRecursively(nodeData, level, x, y) {
+                // 创建当前卡片
+                this.createCard(nodeData, level, x, y);
+                
+                // 递归创建子卡片
+                if (nodeData.children && nodeData.children.length > 0) {
+                    const childX = x + 300; // 每列间距300px
+                    const childSpacing = 80; // 每个子卡片间距80px
+                    const totalHeight = (nodeData.children.length - 1) * childSpacing;
+                    const startY = y - totalHeight / 2;
+                    
+                    nodeData.children.forEach((child, index) => {
+                        const childY = startY + index * childSpacing;
+                        this.createCardsRecursively(child, level + 1, childX, childY);
+                    });
+                }
+            }
+
+            createCard(nodeData, level, x, y) {
+                const card = document.createElement('div');
+                card.className = `card ${level === 0 ? 'root-card' : level === 1 ? 'branch-card' : 'leaf-card'}`;
+                card.dataset.nodeId = nodeData.id;
+                card.dataset.level = level;
+                
+                // 设置绝对位置
+                card.style.left = x + 'px';
+                card.style.top = y + 'px';
+                
+                // 默认隐藏非根节点
+                if (level > 0) {
+                    card.classList.add('hidden');
+                }
+
+                const content = document.createElement('div');
+                content.className = 'card-content';
+                content.textContent = nodeData.text;
+
+                // 添加子节点数量指示器
+                if (nodeData.children && nodeData.children.length > 0) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'expand-indicator';
+                    indicator.textContent = nodeData.children.length;
+                    card.appendChild(indicator);
+                }
+
+                card.appendChild(content);
+                
+                // 添加点击事件
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    console.log('点击卡片:', nodeData.id);
+                    this.handleCardClick(nodeData.id);
+                    // 点击后设置键盘焦点（在handleCardClick之后，确保界面已更新）
+                    setTimeout(() => {
+                        this.setKeyboardFocus(nodeData.id);
+                    }, 50);
+                });
+
+                // 添加悬停事件（仅对探索路径卡片）
+                card.addEventListener('mouseenter', (e) => {
+                    if (card.classList.contains('exploration')) {
+                        this.highlightExplorationPath(nodeData.id);
+                    }
+                });
+
+                card.addEventListener('mouseleave', (e) => {
+                    if (card.classList.contains('exploration')) {
+                        this.unhighlightExplorationPath();
+                    }
+                });
+
+                this.container.appendChild(card);
+
+                // 保存卡片信息
+                this.cards.set(nodeData.id, {
+                    element: card,
+                    data: nodeData,
+                    level: level,
+                    x: x,
+                    y: y
+                });
+                
+                // 创建连接线（如果有父节点）
+                if (level > 0) {
+                    this.createConnection(nodeData, level, x, y);
+                }
+            }
+
+            createConnection(nodeData, level, x, y) {
+                // 找到父节点位置
+                const parentCard = this.findParentCard(nodeData.id);
+                if (!parentCard) return;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                line.setAttribute('class', 'connection-line');
+                line.dataset.from = parentCard.data.id;
+                line.dataset.to = nodeData.id;
+
+                this.svg.appendChild(line);
+            }
+
+            // 更新所有连接线的实际位置
+            updateAllConnectionPositions() {
+                // 使用requestAnimationFrame优化性能，避免拖动时过度重绘
+                if (this.positionUpdatePending) return;
+                
+                this.positionUpdatePending = true;
+                requestAnimationFrame(() => {
+                const lines = this.svg.querySelectorAll('.connection-line');
+                
+                lines.forEach((line) => {
+                    const fromId = line.dataset.from;
+                    const toId = line.dataset.to;
+                    
+                    const fromCard = this.cards.get(fromId);
+                    const toCard = this.cards.get(toId);
+                    
+                    if (fromCard && toCard && fromCard.element && toCard.element) {
+                        // 检查元素是否可见
+                        if (fromCard.element.classList.contains('hidden') || toCard.element.classList.contains('hidden')) {
+                            return;
+                        }
+                        
+                            // 使用存储的坐标而不是getBoundingClientRect
+                            // 因为transform会影响getBoundingClientRect的结果
+                            const fromX = fromCard.x + 240; // 卡片宽度240px，连接点在右边
+                            const fromY = fromCard.y + 40; // 连接点在卡片中心（卡片高度约80px）
+                            const toX = toCard.x; // 连接点在左边
+                            const toY = toCard.y + 40; // 连接点在卡片中心
+                        
+                        // 创建连接路径
+                        const path = this.createSmoothCurvePath(fromX, fromY, toX, toY);
+                        line.setAttribute('d', path);
+                    }
+                    });
+                    
+                    this.positionUpdatePending = false;
+                });
+            }
+
+            createSmoothCurvePath(x1, y1, x2, y2) {
+                // 创建流畅的S型贝塞尔曲线
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                
+                // 控制点位置，创造自然的曲线
+                const cp1x = x1 + dx * 0.6;
+                const cp1y = y1;
+                const cp2x = x1 + dx * 0.4;
+                const cp2y = y2;
+                
+                return `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
+            }
+
+            findParentCard(nodeId) {
+                // 在数据结构中找到父节点
+                const findParent = (node, targetId, parent = null) => {
+                    if (node.id === targetId) {
+                        return parent;
+                    }
+                    if (node.children) {
+                        for (const child of node.children) {
+                            const result = findParent(child, targetId, node);
+                            if (result) return result;
+                        }
+                    }
+                    return null;
+                };
+                
+                const parentData = findParent(mindmapData, nodeId);
+                return parentData ? this.cards.get(parentData.id) : null;
+            }
+
+            handleCardClick(nodeId) {
+                console.log('=== 处理卡片点击 ===');
+                console.log('点击卡片:', nodeId);
+                console.log('当前路径:', this.currentPath);
+                
+                // 首次点击时显示连接线
+                if (!this.svg.classList.contains('visible')) {
+                    this.svg.classList.add('visible');
+                }
+                
+                // 如果已经确认了解决方案，不允许再修改
+                if (this.pathMode === 'confirmed') {
+                    console.log('解决方案已确认，无法修改路径');
+                    return;
+                }
+                
+                // 构建到目标节点的路径
+                const newPath = this.buildPathToNode(nodeId);
+                if (newPath) {
+                    this.currentPath = newPath;
+                    console.log('新路径:', this.currentPath);
+                    this.updateDisplay();
+                } else {
+                    console.log('无法找到节点路径');
+                }
+            }
+
+            // 构建从根节点到目标节点的完整路径
+            buildPathToNode(targetId) {
+                return this.findPathInData(mindmapData, targetId, []);
+            }
+
+            // 在数据结构中查找路径
+            findPathInData(node, targetId, currentPath) {
+                const newPath = [...currentPath, node.id];
+                
+                if (node.id === targetId) {
+                    return newPath;
+                }
+                
+                if (node.children) {
+                    for (const child of node.children) {
+                        const result = this.findPathInData(child, targetId, newPath);
+                        if (result) {
+                            return result;
+                        }
+                    }
+                }
+                
+                return null;
+            }
+
+            updateDisplay() {
+                console.log('=== 更新Gingko显示 ===');
+                console.log('当前路径:', this.currentPath);
+                console.log('探索路径:', this.explorationPaths);
+                console.log('解决方案路径:', this.solutionPath);
+                
+                // 1. 重置所有卡片状态
+                this.cards.forEach((cardInfo, nodeId) => {
+                    cardInfo.element.classList.add('hidden');
+                    cardInfo.element.classList.remove('active', 'exploration', 'solution');
+                });
+
+                // 2. 显示并标记所有探索路径中的卡片
+                this.explorationPaths.forEach(path => {
+                    path.forEach((nodeId) => {
+                    const cardInfo = this.cards.get(nodeId);
+                    if (cardInfo) {
+                        cardInfo.element.classList.remove('hidden');
+                            cardInfo.element.classList.add('exploration');
+                        }
+                    });
+                });
+
+                // 3. 显示并标记解决方案路径中的卡片（如果存在）
+                if (this.solutionPath) {
+                    this.solutionPath.forEach((nodeId) => {
+                        const cardInfo = this.cards.get(nodeId);
+                        if (cardInfo) {
+                            cardInfo.element.classList.remove('hidden', 'exploration');
+                            cardInfo.element.classList.add('solution');
+                        }
+                    });
+                }
+
+                // 4. 显示当前活跃路径中的卡片
+                if (this.pathMode === 'exploring') {
+                    this.currentPath.forEach((nodeId) => {
+                        const cardInfo = this.cards.get(nodeId);
+                        if (cardInfo) {
+                            cardInfo.element.classList.remove('hidden', 'exploration');
+                        cardInfo.element.classList.add('active');
+                    }
+                });
+
+                    // 5. 显示当前节点的直接子节点
+                const currentNodeId = this.currentPath[this.currentPath.length - 1];
+                const currentNode = this.findNodeInData(mindmapData, currentNodeId);
+                
+                if (currentNode && currentNode.children) {
+                    currentNode.children.forEach(child => {
+                        const childCardInfo = this.cards.get(child.id);
+                        if (childCardInfo) {
+                            childCardInfo.element.classList.remove('hidden');
+                                }
+                            });
+                    }
+                        }
+                
+                // 更新连接线位置和显示状态（只在连接线可见时）
+                if (this.svg.classList.contains('visible')) {
+                    setTimeout(() => {
+                        this.updateAllConnectionPositions();
+                        this.updateConnectionLines();
+                    }, 50); // 等待DOM更新完成
+                }
+            }
+
+            updateConnectionLines() {
+                // 先更新所有连接线位置
+                this.updateAllConnectionPositions();
+                
+                // 获取所有连接线
+                const lines = this.svg.querySelectorAll('.connection-line');
+                
+                // 重置所有连接线状态
+                lines.forEach(line => {
+                    line.classList.remove('visible', 'active', 'exploration', 'solution');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                });
+
+                // 显示探索路径的连接线
+                this.explorationPaths.forEach(path => {
+                    for (let i = 0; i < path.length - 1; i++) {
+                        const fromId = path[i];
+                        const toId = path[i + 1];
+                        
+                        const pathLine = Array.from(lines).find(line => 
+                            line.dataset.from === fromId && line.dataset.to === toId
+                        );
+                        
+                        if (pathLine) {
+                            pathLine.classList.add('visible', 'exploration');
+                        }
+                    }
+                });
+
+                // 显示解决方案路径的连接线（如果存在）
+                if (this.solutionPath) {
+                    for (let i = 0; i < this.solutionPath.length - 1; i++) {
+                        const fromId = this.solutionPath[i];
+                        const toId = this.solutionPath[i + 1];
+                        
+                        const pathLine = Array.from(lines).find(line => 
+                            line.dataset.from === fromId && line.dataset.to === toId
+                        );
+                        
+                        if (pathLine) {
+                            pathLine.classList.remove('exploration');
+                            pathLine.classList.add('visible', 'solution');
+                            pathLine.setAttribute('marker-end', 'url(#activeArrow)');
+                        }
+                    }
+                }
+
+                // 显示当前活跃路径的连接线
+                if (this.pathMode === 'exploring') {
+                for (let i = 0; i < this.currentPath.length - 1; i++) {
+                    const fromId = this.currentPath[i];
+                    const toId = this.currentPath[i + 1];
+                    
+                    const pathLine = Array.from(lines).find(line => 
+                        line.dataset.from === fromId && line.dataset.to === toId
+                    );
+                    
+                    if (pathLine) {
+                            pathLine.classList.remove('exploration');
+                        pathLine.classList.add('visible', 'active');
+                        pathLine.setAttribute('marker-end', 'url(#activeArrow)');
+                    }
+                }
+
+                // 显示当前节点的子连接线
+                const currentNodeId = this.currentPath[this.currentPath.length - 1];
+                const currentNode = this.findNodeInData(mindmapData, currentNodeId);
+                
+                if (currentNode && currentNode.children) {
+                    currentNode.children.forEach(child => {
+                        const childLine = Array.from(lines).find(line => 
+                            line.dataset.from === currentNodeId && line.dataset.to === child.id
+                        );
+                        
+                        if (childLine) {
+                            childLine.classList.add('visible');
+                    }
+                });
+                    }
+            }
+            }
+
+            // 在数据结构中查找节点
+            findNodeInData(node, targetId) {
+                if (node.id === targetId) {
+                    return node;
+                }
+                
+                if (node.children) {
+                    for (const child of node.children) {
+                        const result = this.findNodeInData(child, targetId);
+                        if (result) {
+                            return result;
+                        }
+                    }
+                }
+                
+                return null;
+            }
+
+
+            centerView() {
+                this.scale = 1.0;
+                this.translateX = 50; // 让根卡片显示在左侧合适位置
+                this.translateY = window.innerHeight / 2 - 150; // 垂直居中
+                this.updateTransform();
+            }
+
+            goBackOneStep() {
+                if (this.pathMode === 'confirmed') {
+                    console.log('解决方案已确认，无法回退');
+                    return;
+                }
+                
+                if (this.currentPath.length > 1) {
+                    this.currentPath.pop(); // 移除最后一个节点
+                    this.updateDisplay();
+                }
+            }
+
+            // 尝试另一条路径（将当前路径加入探索路径）
+            tryAnotherPath() {
+                if (this.pathMode === 'confirmed') {
+                    console.log('解决方案已确认，无法尝试新路径');
+                    return;
+                }
+                
+                if (this.currentPath.length > 1) {
+                    // 将当前路径加入探索路径
+                    this.explorationPaths.push([...this.currentPath]);
+                    console.log('将路径加入探索:', this.currentPath);
+                    
+                    // 重置到根节点
+                    this.currentPath = ['root'];
+                    this.updateDisplay();
+                }
+            }
+
+            // 确认当前路径为解决方案
+            confirmSolution() {
+                if (this.currentPath.length > 1) {
+                    this.solutionPath = [...this.currentPath];
+                    this.pathMode = 'confirmed';
+                    console.log('确认解决方案路径:', this.solutionPath);
+                    this.updateDisplay();
+                    
+                    // 显示复制按钮
+                    document.getElementById('copyBtn').style.display = 'block';
+                }
+            }
+
+            // 重置所有状态
+            resetToInitialState() {
+                this.currentPath = ['root'];
+                this.explorationPaths = [];
+                this.solutionPath = null;
+                this.pathMode = 'exploring';
+                this.clearKeyboardFocus();
+                this.svg.classList.remove('visible');
+                
+                // 隐藏复制按钮
+                document.getElementById('copyBtn').style.display = 'none';
+                
+                this.updateDisplay();
+            }
+
+            // 高亮显示特定的探索路径
+            highlightExplorationPath(nodeId) {
+                // 找到包含该节点的探索路径
+                const targetPath = this.explorationPaths.find(path => path.includes(nodeId));
+                if (!targetPath) return;
+
+                // 高亮该路径上的所有卡片
+                targetPath.forEach(pathNodeId => {
+                    const cardInfo = this.cards.get(pathNodeId);
+                    if (cardInfo && cardInfo.element.classList.contains('exploration')) {
+                        cardInfo.element.classList.add('highlighted');
+                    }
+                });
+
+                // 高亮该路径上的所有连接线
+                const lines = this.svg.querySelectorAll('.connection-line');
+                for (let i = 0; i < targetPath.length - 1; i++) {
+                    const fromId = targetPath[i];
+                    const toId = targetPath[i + 1];
+                    
+                    const pathLine = Array.from(lines).find(line => 
+                        line.dataset.from === fromId && line.dataset.to === toId
+                    );
+                    
+                    if (pathLine && pathLine.classList.contains('exploration')) {
+                        pathLine.classList.add('highlighted');
+                    }
+                }
+            }
+
+            // 取消高亮探索路径
+            unhighlightExplorationPath() {
+                // 移除所有卡片的高亮状态
+                this.cards.forEach((cardInfo) => {
+                    cardInfo.element.classList.remove('highlighted');
+                });
+
+                // 移除所有连接线的高亮状态
+                const lines = this.svg.querySelectorAll('.connection-line');
+                lines.forEach(line => {
+                    line.classList.remove('highlighted');
+                });
+            }
+
+            // 同级节点导航（上下键）
+            navigateToSibling(direction) {
+                // 如果没有焦点，先尝试从可见的子节点开始
+                if (!this.keyboardFocusedCard) {
+                    this.initializeKeyboardFocus();
+                    return;
+                }
+
+                // 获取当前焦点节点的同级节点
+                const siblings = this.getSiblingsOfNode(this.keyboardFocusedCard);
+                if (siblings.length <= 1) return; // 没有兄弟节点可以切换
+
+                const currentIndex = siblings.findIndex(sibling => sibling.id === this.keyboardFocusedCard);
+                if (currentIndex === -1) return; // 当前节点不在兄弟节点列表中
+
+                // 根据方向计算新的索引
+                let newIndex;
+                if (direction === 'down') {
+                    newIndex = (currentIndex + 1) % siblings.length;
+                } else {
+                    newIndex = currentIndex === 0 ? siblings.length - 1 : currentIndex - 1;
+                }
+
+                // 设置新的焦点
+                this.setKeyboardFocus(siblings[newIndex].id);
+            }
+
+            // 导航到父节点（左键）
+            navigateToParent() {
+                if (!this.keyboardFocusedCard) {
+                    // 如果没有焦点，设置焦点到当前路径的最后一个节点
+                    const lastNodeId = this.currentPath[this.currentPath.length - 1];
+                    this.setKeyboardFocus(lastNodeId);
+                    return;
+                }
+
+                // 找到当前焦点节点的父节点
+                const parentNode = this.findParentInData(this.keyboardFocusedCard);
+                if (parentNode && this.isNodeVisible(parentNode.id)) {
+                    this.setKeyboardFocus(parentNode.id);
+                } else {
+                    // 如果父节点不可见，尝试回到路径中的上一级
+                    const focusedIndex = this.currentPath.indexOf(this.keyboardFocusedCard);
+                    if (focusedIndex > 0) {
+                        this.setKeyboardFocus(this.currentPath[focusedIndex - 1]);
+                    }
+                }
+            }
+
+            // 导航到子节点（右键）
+            navigateToChild() {
+                if (!this.keyboardFocusedCard) {
+                    this.initializeKeyboardFocus();
+                    return;
+                }
+
+                // 检查当前焦点节点是否有可见的子节点
+                const focusedNodeData = this.findNodeInData(mindmapData, this.keyboardFocusedCard);
+                if (!focusedNodeData || !focusedNodeData.children) return;
+
+                // 找到第一个可见的子节点
+                const firstVisibleChild = focusedNodeData.children.find(child => 
+                    this.isNodeVisible(child.id)
+                );
+
+                if (firstVisibleChild) {
+                    this.setKeyboardFocus(firstVisibleChild.id);
+                } else {
+                    // 如果没有可见的子节点，尝试展开/选择当前节点
+                    this.selectFocusedCard();
+                }
+            }
+
+            // 初始化键盘焦点（设置到第一个可见的可选择节点）
+            initializeKeyboardFocus() {
+                // 优先选择当前路径的最后一个节点
+                const lastNodeId = this.currentPath[this.currentPath.length - 1];
+                if (this.isNodeVisible(lastNodeId)) {
+                    this.setKeyboardFocus(lastNodeId);
+                    return;
+                }
+
+                // 否则选择第一个可见的子节点
+                const lastNode = this.findNodeInData(mindmapData, lastNodeId);
+                if (lastNode && lastNode.children) {
+                    const firstVisibleChild = lastNode.children.find(child => 
+                        this.isNodeVisible(child.id)
+                    );
+                    if (firstVisibleChild) {
+                        this.setKeyboardFocus(firstVisibleChild.id);
+                    }
+                }
+            }
+
+            // 获取指定节点的同级节点
+            getSiblingsOfNode(nodeId) {
+                const parentNode = this.findParentInData(nodeId);
+                if (!parentNode || !parentNode.children) return [];
+
+                // 找到父节点下所有可见的子节点
+                const siblings = parentNode.children
+                    .filter(child => this.isNodeVisible(child.id))
+                    .map(child => {
+                        const cardInfo = this.cards.get(child.id);
+                        return {
+                            id: child.id,
+                            data: child,
+                            y: cardInfo ? cardInfo.y : 0
+                        };
+                    });
+
+                // 按Y坐标排序（从上到下）
+                siblings.sort((a, b) => a.y - b.y);
+                return siblings;
+            }
+
+            // 检查节点是否可见
+            isNodeVisible(nodeId) {
+                const cardInfo = this.cards.get(nodeId);
+                return cardInfo && !cardInfo.element.classList.contains('hidden');
+            }
+
+
+            // 在数据结构中找到某个节点的父节点
+            findParentInData(targetId) {
+                const findParent = (node, target, parent = null) => {
+                    if (node.id === target) {
+                        return parent;
+                    }
+                    if (node.children) {
+                        for (const child of node.children) {
+                            const result = findParent(child, target, node);
+                            if (result) return result;
+                        }
+                    }
+                    return null;
+                };
+                
+                return findParent(mindmapData, targetId);
+            }
+
+            // 设置键盘焦点
+            setKeyboardFocus(nodeId) {
+                // 清除之前的焦点
+                this.clearKeyboardFocus();
+                
+                // 设置新焦点
+                this.keyboardFocusedCard = nodeId;
+                const cardInfo = this.cards.get(nodeId);
+                if (cardInfo) {
+                    cardInfo.element.classList.add('keyboard-focused');
+                    console.log('键盘焦点设置到:', nodeId);
+                }
+            }
+
+            // 清除键盘焦点
+            clearKeyboardFocus() {
+                if (this.keyboardFocusedCard) {
+                    const cardInfo = this.cards.get(this.keyboardFocusedCard);
+                    if (cardInfo) {
+                        cardInfo.element.classList.remove('keyboard-focused');
+                    }
+                    this.keyboardFocusedCard = null;
+                }
+            }
+
+            // 选择当前焦点的卡片
+            selectFocusedCard() {
+                if (this.keyboardFocusedCard) {
+                    this.handleCardClick(this.keyboardFocusedCard);
+                    // 选择后，自动设置焦点到新展开的第一个子节点（如果有的话）
+                    setTimeout(() => {
+                        const focusedNodeData = this.findNodeInData(mindmapData, this.keyboardFocusedCard);
+                        if (focusedNodeData && focusedNodeData.children) {
+                            const firstVisibleChild = focusedNodeData.children.find(child => 
+                                this.isNodeVisible(child.id)
+                            );
+                            if (firstVisibleChild) {
+                                this.setKeyboardFocus(firstVisibleChild.id);
+                            }
+                        }
+                    }, 100);
+                }
+            }
+
+            // 生成解法路径文本
+            generateSolutionText() {
+                if (!this.solutionPath || this.solutionPath.length === 0) {
+                    return "暂无解法路径";
+                }
+
+                // 只返回纯粹的解题路径
+                const solutionText = this.solutionPath.slice(1).map(nodeId => {
+                    const nodeData = this.findNodeInData(mindmapData, nodeId);
+                    return nodeData ? nodeData.text : nodeId;
+                }).join(' → ');
+
+                return solutionText;
+            }
+
+            // 复制解法路径到剪贴板
+            async copySolutionToClipboard() {
+                const solutionText = this.generateSolutionText();
+                
+                try {
+                    await navigator.clipboard.writeText(solutionText);
+                    return true;
+                } catch (err) {
+                    // 降级方案：使用传统的复制方法
+                    const textArea = document.createElement('textarea');
+                    textArea.value = solutionText;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-999999px';
+                    textArea.style.top = '-999999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        return true;
+                    } catch (err2) {
+                        document.body.removeChild(textArea);
+                        return false;
+                    }
+                }
+            }
+        }
+
+        // 全局函数
+        function resetMindmap() {
+            if (window.mindmapRenderer) {
+                window.mindmapRenderer.resetToInitialState();
+            } else {
+            location.reload();
+            }
+        }
+
+        function centerView() {
+            if (window.mindmapRenderer) {
+                window.mindmapRenderer.centerView();
+            }
+        }
+
+
+        function tryAnotherPath() {
+            if (window.mindmapRenderer) {
+                window.mindmapRenderer.tryAnotherPath();
+            }
+        }
+
+        function confirmSolution() {
+            if (window.mindmapRenderer) {
+                window.mindmapRenderer.confirmSolution();
+            }
+        }
+
+        async function copySolutionPath() {
+            if (window.mindmapRenderer) {
+                const copyBtn = document.getElementById('copyBtn');
+                const originalText = copyBtn.textContent;
+                
+                try {
+                    const success = await window.mindmapRenderer.copySolutionToClipboard();
+                    
+                    if (success) {
+                        // 显示成功反馈
+                        copyBtn.textContent = '✅ 已复制';
+                        copyBtn.classList.add('copied');
+                        
+                        // 2秒后恢复原状
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                            copyBtn.classList.remove('copied');
+                        }, 2000);
+                    } else {
+                        // 显示失败反馈
+                        copyBtn.textContent = '❌ 复制失败';
+                        setTimeout(() => {
+                            copyBtn.textContent = originalText;
+                        }, 2000);
+                    }
+                } catch (error) {
+                    console.error('复制失败:', error);
+                    copyBtn.textContent = '❌ 复制失败';
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                    }, 2000);
+                }
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            window.mindmapRenderer = new GingkoMindmapRenderer();
+        });
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'F5' || (e.metaKey && e.key === 'r') || (e.ctrlKey && e.key === 'r')) {
+                return; // 允许刷新
+            }
+            if (e.key === 'c' || e.key === 'C') {
+                centerView();
+            }
+            // 移除了回退键处理，现在由键盘导航系统统一处理方向键
+        });
+    </script>
+</body>
+</html>
