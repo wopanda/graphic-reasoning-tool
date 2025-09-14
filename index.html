@@ -6,37 +6,89 @@ const mindmapMarkdown = `
 - 🎯 图形推理决策
     - 🚀 构成相似
       - 👉 元素完全相同 ⇒ [位置规律]
-        - 移动类型：平移、旋转、翻转
-        - 移动载体 (背景格)
-          - 宫格类：优先“内外分离”，善用“大面积区域法”
-          - 非宫格类：自行构建参照系，遵循“就近原则”
-        - 特殊情况：有元素“不动” ⇒ [相邻比较]
+        - 平移
+          * 方向 (直线/曲线/往返)
+          * 步数 (恒定/递增/循环)
+        - 旋转
+          * 方向 (顺时针/逆时针)
+          * 角度 (45°/90°/180°)
+        - 翻转
+          * 方向 (左右/上下)
+        - 相邻比较
+          * 触发特征：有元素"不动"
+          * 检查：位置、形状、样式的变化
       - 👉 元素部分相同 ⇒ [样式规律]
-        - 黑白块 (外框一致) ⇒ [黑白运算] (技巧：找“相同区域”秒杀)
-        - 线条 (外框不一) ⇒ [加减同异] (核心：优先验证“求异”)
-        - 有孤立“小标记” ⇒ [标记规律] (分析标记与主体/标记之间的关系)
+        - 加减同异 (运算)
+          * 核心：优先验证"求异"
+          * 求异 (保留不同)
+          * 求同 (保留相同)
+          * 叠加 (直接相加)
+        - 黑白运算
+          * 触发特征：带方格的黑白块
+          * 运算逻辑：如：白+白=白, 黑+黑=白, 黑+白=黑
+          * 技巧：找"相同区域"进行秒杀
+        - 标记规律
+          * 触发特征：有孤立的"小标记"
+          * 检查：分析标记与主体/标记之间的关系
     - 🚀 构成各异
       - 👉 优先查 [属性规律] (宏观特征)
-        - 对称 (最高优先级)：轴/中心对称 (注意内部填充)
-        - 曲直 (触发：一半以上图形含曲线)
-        - 开闭 (触发：“生活化”图形)
+        - 对称性 (最高优先级)
+          * 轴对称 (检查: 数量, 方向)
+          * 中心对称
+          * 轴心共存
+        - 曲直性
+          * 触发特征：一半以上图形含曲线
+          * 检查：全直线 / 全曲线 / 曲直共存
+        - 开闭性
+          * 触发特征："生活化"图形
+          * 检查：全开放 / 全封闭 / 开闭交替
+        - 图形间关系
+          * 触发特征：图形由2个元素构成
+          * 检查：相离 / 相交 / 相切 / 包含
       - 👉 无明显属性，则查 [数量规律]
-        - 强特征优先 (看到即数)
-          - “日/田/五角星/圆相交” → [笔画]
-          - “图形散乱、不连接” → [元素]
-          - “十字/矩形/直角三角” → [角(直角)]
-          - “每幅图都有曲线” → [线(曲/直/交点)]
-          - “每幅图都由2个元素构成” → [图形关系]
-        - 兜底策略 (无强特征时按序排查)
-          - 1. 数 [面] (封闭空间)
-          - 2. 数 [笔画]
-          - 3. 数 [点] (交点/端点)
+        - 识别强特征 (快速定位考点)
+          - 日/田/五角星/汉字
+            * 数 [笔画]
+          - 图形散乱、不连接
+            * 数 [元素]
+          - 标准几何图形
+            * 数 [角(直角优先)]
+          - 都有曲线
+            * 数 [线(曲/直)] 或 [点(交点)]
+          - 内部相交复杂
+            * 数 [点(交点)] 或 [面]
+        - 按序排查 (无强特征时的兜底策略)
+          - 1. 数 [面]
+            - 面的总数
+            - 细化 (当面的总数无规律)
+              * 所有面形状一致? (如全三角)
+              * 存在两种面? (考数量运算)
+              * 只数特定形状的面? (如只数三角)
+              * 存在大小面? (大/小面单独分析)
+          - 2. 数 [线]
+            - 线的总数
+            - 细化 (当线的总数无规律)
+              * 直线数 / 曲线数 (二者可运算)
+              * 横线数 / 竖线数 (二者可运算)
+              * 平行线 (组数/条数)
+          - 3. 数 [点]
+            - 交点总数 (线条之间)
+            - 细化 (看特征)
+              * 端点总数
+              * 曲直交点 / 切点 / 框点 (当图形含曲线时)
+          - 4. 数 [笔画]
+            - 一笔画 vs 多笔画
+              * 判断依据：奇点数 (0或2为一笔画)
+          - 5. 数 [元素]
+            - 元素种类 / 元素总数
+            - 细化 (看特征)
+                * 部分数 (数特定小元素)
       - 👉 [黑白块] 特殊决策模块
-        - 规则/好看 → 优先查 [对称轴]
-        - 数量少/面积大 → 优先查 [位置规律]
-        - 分堆少 → 优先查 [部分数]
-        - 分堆多/九宫格 → 优先查 [黑白运算]
-        - (最后才考虑) → 黑块/白块 [个数]
+        * 1. [属性] 规则/好看 → 查 [对称性]
+        * 2. [位置] 数量少/面积大 → 查 [位置规律]
+        * 3. [数量] 分堆少 → 查 [部分数]
+        * 4. [样式] 分堆多/九宫格 → 查 [黑白运算]
+        * 5. [数量] (最后考虑) → 查 黑块/白块 [个数]
 `.trim();
 </script>
 
@@ -244,6 +296,47 @@ const mindmapMarkdown = `
             font-weight: 600;
         }
 
+        /* 搜索匹配状态的卡片 - 搜索结果层 */
+        .card.search-match {
+            background: linear-gradient(135deg, #E0F2FE, #BAE6FD);
+            border: 2px solid #0EA5E9;
+            box-shadow: 0 4px 20px rgba(14, 165, 233, 0.3);
+            z-index: 12;
+            transform: scale(1.05);
+            animation: searchPulse 2s ease-in-out infinite;
+        }
+
+        .card.search-match .card-content {
+            color: #0C4A6E;
+            font-weight: 600;
+        }
+
+        /* 搜索路径中的卡片 */
+        .card.search-path {
+            background: linear-gradient(135deg, #F0F9FF, #E0F2FE);
+            border: 2px solid #0284C7;
+            box-shadow: 0 3px 15px rgba(2, 132, 199, 0.2);
+            z-index: 11;
+            transform: scale(1.02);
+        }
+
+        .card.search-path .card-content {
+            color: #164E63;
+            font-weight: 500;
+        }
+
+        /* 搜索脉动动画 */
+        @keyframes searchPulse {
+            0%, 100% {
+                transform: scale(1.05);
+                box-shadow: 0 4px 20px rgba(14, 165, 233, 0.3);
+            }
+            50% {
+                transform: scale(1.08);
+                box-shadow: 0 6px 25px rgba(14, 165, 233, 0.5);
+            }
+        }
+
         /* 当前活跃卡片 - 交互层 */
         .card.active {
             z-index: 8;
@@ -301,6 +394,95 @@ const mindmapMarkdown = `
             background: #007AFF;
             border-color: #007AFF;
             color: white;
+        }
+
+        /* 检查清单指示器 */
+        .checklist-indicator {
+            position: absolute;
+            right: 35px; /* 位于展开指示器左侧 */
+            top: 50%;
+            transform: translateY(-50%);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .checklist-indicator:hover {
+            background: #0ea5e9;
+            border-color: #0ea5e9;
+            color: white;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        /* 检查清单弹出框 */
+        .checklist-popup {
+            position: absolute;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            padding: 12px 16px;
+            min-width: 200px;
+            max-width: 400px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .checklist-popup .checklist-title {
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .checklist-popup .checklist-item {
+            margin: 4px 0;
+            color: #4a5568;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .checklist-popup .checklist-item::before {
+            content: "•";
+            color: #0ea5e9;
+            font-weight: bold;
+            margin-right: 6px;
+            margin-top: 2px;
+        }
+
+        .checklist-popup .checklist-item.level-1 {
+            margin-left: 12px;
+            font-size: 12px;
+            color: #718096;
+        }
+
+        .checklist-popup .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #a0aec0;
+            cursor: pointer;
+            padding: 2px;
+            line-height: 1;
+        }
+
+        .checklist-popup .close-btn:hover {
+            color: #4a5568;
         }
 
         /* 连接线容器 */
@@ -383,6 +565,16 @@ const mindmapMarkdown = `
             z-index: 10;
         }
 
+        /* 搜索路径样式 - 搜索结果层（最高优先级） */
+        .connection-line.search-path {
+            opacity: 1;
+            stroke: #0EA5E9;
+            stroke-width: 6;
+            filter: drop-shadow(0 4px 16px rgba(14, 165, 233, 0.5));
+            animation: searchPathPulse 2.5s ease-in-out infinite;
+            z-index: 12;
+        }
+
         /* 路径脉动动画 */
         @keyframes pathPulse {
             0%, 100% {
@@ -405,6 +597,19 @@ const mindmapMarkdown = `
                 stroke-width: 6;
                 opacity: 0.9;
                 filter: drop-shadow(0 4px 16px rgba(245, 158, 11, 0.6));
+            }
+        }
+
+        /* 搜索路径脉动动画 */
+        @keyframes searchPathPulse {
+            0%, 100% {
+                stroke-width: 6;
+                opacity: 1;
+            }
+            50% {
+                stroke-width: 8;
+                opacity: 0.8;
+                filter: drop-shadow(0 6px 20px rgba(14, 165, 233, 0.7));
             }
         }
 
@@ -440,6 +645,160 @@ const mindmapMarkdown = `
             z-index: 1000;
             display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* 搜索容器 */
+        .search-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .search-container:focus-within {
+            border-color: #007AFF;
+            box-shadow: 0 4px 8px rgba(0, 122, 255, 0.15);
+        }
+
+        /* 搜索输入框 */
+        .search-input {
+            padding: 8px 12px;
+            border: none;
+            outline: none;
+            font-size: 12px;
+            font-weight: 500;
+            color: #4a5568;
+            background: transparent;
+            width: 180px;
+            border-radius: 8px;
+        }
+
+        .search-input::placeholder {
+            color: #a0aec0;
+        }
+
+        /* 搜索清除按钮 */
+        .search-clear-btn {
+            position: absolute;
+            right: 4px;
+            padding: 4px 6px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            color: #a0aec0;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .search-clear-btn:hover {
+            background: #f7fafc;
+            color: #4a5568;
+        }
+
+        /* 搜索建议下拉框 */
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1001;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+
+        .suggestions-header {
+            padding: 8px 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .suggestions-list {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .suggestion-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .suggestion-item:hover,
+        .suggestion-item.highlighted {
+            background: #f0f9ff;
+            border-left: 3px solid #0ea5e9;
+        }
+
+        .suggestion-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .suggestion-title {
+            font-weight: 500;
+            color: #2d3748;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .suggestion-path {
+            font-size: 10px;
+            color: #718096;
+            opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .suggestion-match {
+            background: #fef3c7;
+            color: #92400e;
+            font-weight: 600;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        .suggestion-icon {
+            margin-left: 8px;
+            color: #94a3b8;
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        .suggestion-item:hover .suggestion-icon {
+            color: #0ea5e9;
+            opacity: 1;
         }
 
         /* 版权信息 - 简约左上角 */
@@ -565,6 +924,39 @@ const mindmapMarkdown = `
                 right: 10px;
                 flex-wrap: wrap;
                 max-width: 300px;
+                flex-direction: column;
+                align-items: flex-end;
+                gap: 8px;
+            }
+
+            /* 移动端搜索框优化 */
+            .search-container {
+                width: 100%;
+                max-width: 200px;
+            }
+
+            .search-input {
+                width: 140px;
+                font-size: 11px;
+                padding: 6px 10px;
+            }
+
+            /* 移动端搜索建议优化 */
+            .search-suggestions {
+                font-size: 11px;
+                max-height: 200px;
+            }
+
+            .suggestion-item {
+                padding: 8px 10px;
+            }
+
+            .suggestion-title {
+                font-size: 11px;
+            }
+
+            .suggestion-path {
+                font-size: 9px;
             }
 
             .control-btn {
@@ -584,6 +976,20 @@ const mindmapMarkdown = `
                 height: 26px;
                 font-size: 11px;
                 right: 6px;
+            }
+
+            /* 移动端检查清单指示器优化 */
+            .checklist-indicator {
+                width: 26px;
+                height: 26px;
+                font-size: 13px;
+                right: 38px;
+            }
+
+            /* 移动端检查清单弹出框优化 */
+            .checklist-popup {
+                max-width: 280px;
+                font-size: 12px;
             }
 
             /* 移动端版权信息优化 */
@@ -616,6 +1022,18 @@ const mindmapMarkdown = `
         
         <!-- 控制面板 -->
         <div class="controls">
+            <!-- 搜索框 -->
+            <div class="search-container">
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索节点内容..." autocomplete="off" />
+                <button class="search-clear-btn" onclick="clearSearch()" id="searchClearBtn" style="display: none;">×</button>
+                <!-- 搜索建议下拉框 -->
+                <div class="search-suggestions" id="searchSuggestions" style="display: none;">
+                    <div class="suggestions-header">搜索结果</div>
+                    <div class="suggestions-list" id="suggestionsList">
+                        <!-- 动态生成的建议项 -->
+                    </div>
+                </div>
+            </div>
             <button class="control-btn" onclick="resetMindmap()">重置 (F5)</button>
             <button class="control-btn" onclick="centerView()">居中</button>
             <button class="control-btn path-action-btn" onclick="tryAnotherPath()" id="tryAnotherBtn">换路</button>
@@ -672,12 +1090,40 @@ const mindmapMarkdown = `
         // Markdown解析器：将markdown格式转换为嵌套对象
         function parseMarkdownToMindmap(markdown) {
             const lines = markdown.split('\n').filter(line => line.trim());
-            const root = { id: 'root', text: '', children: [] };
+            const root = { id: 'root', text: '', children: [], checklist: [] };
             const stack = [{ node: root, level: -1 }];
             let idCounter = 0;
             
             lines.forEach(line => {
-                // 计算缩进级别
+                const trimmedLine = line.trim();
+                
+                // 检查是否是检查清单项（以 * 开头）
+                const checklistMatch = line.match(/^(\s*)\*\s*(.+)$/);
+                if (checklistMatch) {
+                    const indentStr = checklistMatch[1];
+                    const text = checklistMatch[2].trim();
+                    const level = indentStr.length / 2;
+                    
+                    // 找到对应的父节点，将检查清单项添加到父节点
+                    const targetLevel = level - 1; // 检查清单项的父节点层级
+                    while (stack.length > 0 && stack[stack.length - 1].level > targetLevel) {
+                        stack.pop();
+                    }
+                    
+                    if (stack.length > 0) {
+                        const parentNode = stack[stack.length - 1].node;
+                        if (!parentNode.checklist) {
+                            parentNode.checklist = [];
+                        }
+                        parentNode.checklist.push({
+                            text: text,
+                            level: level - targetLevel - 1 // 相对于父节点的层级
+                        });
+                    }
+                    return;
+                }
+                
+                // 处理普通的无序列表项（节点）
                 const match = line.match(/^(\s*)-\s*(.+)$/);
                 if (!match) return;
                 
@@ -691,7 +1137,8 @@ const mindmapMarkdown = `
                 const newNode = {
                     id: id,
                     text: text,
-                    children: []
+                    children: [],
+                    checklist: []
                 };
                 
                 // 如果是根节点，设置文本
@@ -736,9 +1183,15 @@ const mindmapMarkdown = `
                 this.pathMode = 'exploring'; // 'exploring' | 'confirmed'
                 this.keyboardFocusedCard = null; // 当前键盘焦点的卡片ID
                 this.positionUpdatePending = false; // 连接线位置更新防抖标志
+                this.searchResults = []; // 搜索结果节点ID列表
+                this.isSearchActive = false; // 是否正在进行搜索
+                this.isFocusMode = false; // 是否处于聚焦模式（只显示选中的节点）
+                this.currentSuggestionIndex = -1; // 当前选中的建议项索引
+                this.searchSuggestions = []; // 搜索建议列表
                 
                 this.setupCanvas();
                 this.setupKeyboardNavigation();
+                this.setupSearchFunctionality();
                 this.render();
             }
 
@@ -987,6 +1440,64 @@ const mindmapMarkdown = `
                 });
             }
 
+            setupSearchFunctionality() {
+                const searchInput = document.getElementById('searchInput');
+                const searchClearBtn = document.getElementById('searchClearBtn');
+                const searchSuggestions = document.getElementById('searchSuggestions');
+                
+                if (!searchInput || !searchClearBtn || !searchSuggestions) return;
+
+                // 搜索输入事件 - 实时搜索
+                searchInput.addEventListener('input', (e) => {
+                    const query = e.target.value.trim();
+                    if (query.length > 0) {
+                        this.performSearchWithSuggestions(query);
+                        searchClearBtn.style.display = 'block';
+                    } else {
+                        // 立即清除搜索状态和样式
+                        this.isSearchActive = false;
+                        this.searchResults = [];
+                        this.clearSearchStyles();
+                        this.hideSuggestions();
+                        this.updateDisplay();
+                        searchClearBtn.style.display = 'none';
+                    }
+                });
+
+                // 搜索框快捷键
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        this.clearSearch();
+                        searchInput.blur();
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        this.navigateSuggestions('down');
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        this.navigateSuggestions('up');
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        this.selectCurrentSuggestion();
+                    }
+                });
+
+                // 点击空白区域隐藏建议框
+                document.addEventListener('click', (e) => {
+                    // 检查点击是否在搜索容器外
+                    const searchContainer = document.querySelector('.search-container');
+                    if (searchContainer && !searchContainer.contains(e.target)) {
+                        this.hideSuggestions();
+                    }
+                });
+
+                // 搜索框获得焦点时显示建议框（如果有搜索结果）
+                searchInput.addEventListener('focus', () => {
+                    if (this.searchSuggestions.length > 0) {
+                        this.showSuggestions();
+                    }
+                });
+            }
+
             updateTransform() {
                 const transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
                 this.container.style.transform = transform;
@@ -1062,6 +1573,21 @@ const mindmapMarkdown = `
                     indicator.className = 'expand-indicator';
                     indicator.textContent = nodeData.children.length;
                     card.appendChild(indicator);
+                }
+                
+                // 添加检查清单指示器
+                if (nodeData.checklist && nodeData.checklist.length > 0) {
+                    const checklistIndicator = document.createElement('div');
+                    checklistIndicator.className = 'checklist-indicator';
+                    checklistIndicator.innerHTML = '📋';
+                    checklistIndicator.title = '点击查看检查清单';
+                    card.appendChild(checklistIndicator);
+                    
+                    // 检查清单点击事件
+                    checklistIndicator.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.showChecklist(nodeData, checklistIndicator);
+                    });
                 }
 
                 card.appendChild(content);
@@ -1249,11 +1775,22 @@ const mindmapMarkdown = `
                 console.log('当前路径:', this.currentPath);
                 console.log('探索路径:', this.explorationPaths);
                 console.log('解决方案路径:', this.solutionPath);
+                console.log('搜索激活:', this.isSearchActive);
+                
+                // 如果搜索处于激活状态，使用相应的显示逻辑
+                if (this.isSearchActive) {
+                    if (this.isFocusMode) {
+                        this.updateDisplayWithFocus();
+                    } else {
+                        this.updateDisplayWithSearch();
+                    }
+                    return;
+                }
                 
                 // 1. 重置所有卡片状态
                 this.cards.forEach((cardInfo, nodeId) => {
                     cardInfo.element.classList.add('hidden');
-                    cardInfo.element.classList.remove('active', 'exploration', 'solution');
+                    cardInfo.element.classList.remove('active', 'exploration', 'solution', 'search-match', 'search-path');
                 });
 
                 // 2. 显示并标记所有探索路径中的卡片
@@ -1318,9 +1855,9 @@ const mindmapMarkdown = `
                 // 获取所有连接线
                 const lines = this.svg.querySelectorAll('.connection-line');
                 
-                // 重置所有连接线状态
+                // 重置所有连接线状态，包括搜索样式
                 lines.forEach(line => {
-                    line.classList.remove('visible', 'active', 'exploration', 'solution');
+                    line.classList.remove('visible', 'active', 'exploration', 'solution', 'search-path');
                     line.setAttribute('marker-end', 'url(#arrowhead)');
                 });
 
@@ -1471,10 +2008,540 @@ const mindmapMarkdown = `
                 this.clearKeyboardFocus();
                 this.svg.classList.remove('visible');
                 
+                // 清除搜索状态
+                this.clearSearch();
+                
                 // 隐藏复制按钮
                 document.getElementById('copyBtn').style.display = 'none';
                 
                 this.updateDisplay();
+            }
+
+            // 执行搜索并生成建议
+            performSearchWithSuggestions(query) {
+                console.log('执行搜索:', query);
+                this.isSearchActive = true;
+                this.searchResults = [];
+                this.searchSuggestions = [];
+                
+                // 在所有节点中搜索匹配的文本
+                this.searchInDataRecursivelyWithDetails(mindmapData, query.toLowerCase(), []);
+                
+                console.log('搜索结果:', this.searchResults);
+                console.log('搜索建议:', this.searchSuggestions);
+                
+                if (this.searchResults.length > 0) {
+                    // 显示连接线（如果还没显示）
+                    if (!this.svg.classList.contains('visible')) {
+                        this.svg.classList.add('visible');
+                    }
+                    
+                    // 显示建议框
+                    this.showSuggestions();
+                    
+                    // 更新显示
+                    this.updateDisplayWithSearch();
+                } else {
+                    this.hideSuggestions();
+                }
+            }
+
+            // 执行搜索（兼容旧版本）
+            performSearch(query) {
+                this.performSearchWithSuggestions(query);
+            }
+
+            // 递归搜索数据结构（带详细信息）
+            searchInDataRecursivelyWithDetails(node, query, currentPath) {
+                const newPath = [...currentPath, { id: node.id, text: node.text }];
+                
+                // 检查当前节点是否匹配
+                if (node.text && node.text.toLowerCase().includes(query)) {
+                    this.searchResults.push(node.id);
+                    
+                    // 生成建议项
+                    const suggestion = {
+                        id: node.id,
+                        title: node.text,
+                        path: this.generatePathString(newPath.slice(0, -1)), // 不包含当前节点的路径
+                        fullPath: newPath,
+                        matchIndex: node.text.toLowerCase().indexOf(query)
+                    };
+                    
+                    this.searchSuggestions.push(suggestion);
+                }
+                
+                // 递归搜索子节点
+                if (node.children) {
+                    node.children.forEach(child => {
+                        this.searchInDataRecursivelyWithDetails(child, query, newPath);
+                    });
+                }
+            }
+
+            // 递归搜索数据结构（兼容旧版本）
+            searchInDataRecursively(node, query) {
+                // 检查当前节点是否匹配
+                if (node.text && node.text.toLowerCase().includes(query)) {
+                    this.searchResults.push(node.id);
+                }
+                
+                // 递归搜索子节点
+                if (node.children) {
+                    node.children.forEach(child => {
+                        this.searchInDataRecursively(child, query);
+                    });
+                }
+            }
+
+            // 生成路径字符串
+            generatePathString(pathNodes) {
+                if (pathNodes.length === 0) return '根节点';
+                return pathNodes.slice(1).map(node => node.text).join(' → ');
+            }
+
+            // 显示搜索建议
+            showSuggestions() {
+                const searchSuggestions = document.getElementById('searchSuggestions');
+                const suggestionsList = document.getElementById('suggestionsList');
+                
+                if (!searchSuggestions || !suggestionsList) return;
+                
+                // 清空现有建议
+                suggestionsList.innerHTML = '';
+                
+                // 生成建议项
+                this.searchSuggestions.forEach((suggestion, index) => {
+                    const suggestionItem = document.createElement('div');
+                    suggestionItem.className = 'suggestion-item';
+                    suggestionItem.dataset.index = index;
+                    
+                    // 高亮匹配的文字
+                    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+                    const highlightedTitle = this.highlightMatch(suggestion.title, query);
+                    
+                    suggestionItem.innerHTML = `
+                        <div class="suggestion-content">
+                            <div class="suggestion-title">${highlightedTitle}</div>
+                            <div class="suggestion-path">${suggestion.path}</div>
+                        </div>
+                        <div class="suggestion-icon">→</div>
+                    `;
+                    
+                    // 点击事件
+                    suggestionItem.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('点击建议项:', index, suggestion);
+                        this.selectSuggestion(index);
+                    });
+
+                    // 鼠标进入时高亮
+                    suggestionItem.addEventListener('mouseenter', () => {
+                        const suggestionItems = document.querySelectorAll('.suggestion-item');
+                        suggestionItems.forEach(item => item.classList.remove('highlighted'));
+                        suggestionItem.classList.add('highlighted');
+                        this.currentSuggestionIndex = index;
+                    });
+                    
+                    suggestionsList.appendChild(suggestionItem);
+                });
+                
+                // 显示建议框
+                searchSuggestions.style.display = 'block';
+                this.currentSuggestionIndex = -1;
+            }
+
+            // 隐藏搜索建议
+            hideSuggestions() {
+                const searchSuggestions = document.getElementById('searchSuggestions');
+                if (searchSuggestions) {
+                    searchSuggestions.style.display = 'none';
+                }
+                this.currentSuggestionIndex = -1;
+            }
+
+            // 高亮匹配文字
+            highlightMatch(text, query) {
+                if (!query) return text;
+                
+                const index = text.toLowerCase().indexOf(query);
+                if (index === -1) return text;
+                
+                const before = text.substring(0, index);
+                const match = text.substring(index, index + query.length);
+                const after = text.substring(index + query.length);
+                
+                return `${before}<span class="suggestion-match">${match}</span>${after}`;
+            }
+
+            // 键盘导航建议框
+            navigateSuggestions(direction) {
+                if (this.searchSuggestions.length === 0) return;
+                
+                const suggestionItems = document.querySelectorAll('.suggestion-item');
+                
+                // 清除之前的高亮
+                suggestionItems.forEach(item => item.classList.remove('highlighted'));
+                
+                // 计算新的索引
+                if (direction === 'down') {
+                    this.currentSuggestionIndex = (this.currentSuggestionIndex + 1) % this.searchSuggestions.length;
+                } else {
+                    this.currentSuggestionIndex = this.currentSuggestionIndex <= 0 
+                        ? this.searchSuggestions.length - 1 
+                        : this.currentSuggestionIndex - 1;
+                }
+                
+                // 高亮当前项
+                if (suggestionItems[this.currentSuggestionIndex]) {
+                    suggestionItems[this.currentSuggestionIndex].classList.add('highlighted');
+                    suggestionItems[this.currentSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            // 选择当前建议项
+            selectCurrentSuggestion() {
+                if (this.currentSuggestionIndex >= 0 && this.currentSuggestionIndex < this.searchSuggestions.length) {
+                    this.selectSuggestion(this.currentSuggestionIndex);
+                } else if (this.searchSuggestions.length > 0) {
+                    // 如果没有选中项，选择第一项
+                    this.selectSuggestion(0);
+                }
+            }
+
+            // 选择特定建议项
+            selectSuggestion(index) {
+                console.log('选择建议项:', index, this.searchSuggestions.length);
+                
+                if (index < 0 || index >= this.searchSuggestions.length) {
+                    console.log('建议项索引无效');
+                    return;
+                }
+                
+                const suggestion = this.searchSuggestions[index];
+                console.log('选中的建议:', suggestion);
+                
+                // 导航到选中的节点
+                const newPath = this.buildPathToNode(suggestion.id);
+                if (newPath) {
+                    console.log('导航到路径:', newPath);
+                    this.currentPath = newPath;
+                    this.hideSuggestions();
+                    
+                    // 切换到聚焦模式，只显示选中的节点和路径
+                    this.switchToFocusMode(suggestion.id);
+                    
+                    // 设置键盘焦点到目标节点
+                    setTimeout(() => {
+                        this.setKeyboardFocus(suggestion.id);
+                    }, 100);
+                } else {
+                    console.log('无法构建到节点的路径:', suggestion.id);
+                }
+            }
+
+            // 切换到聚焦模式，只显示选中的节点
+            switchToFocusMode(focusNodeId) {
+                console.log('切换到聚焦模式:', focusNodeId);
+                
+                // 进入聚焦模式
+                this.isFocusMode = true;
+                
+                // 清除所有搜索结果，只保留聚焦的节点
+                this.searchResults = [focusNodeId];
+                
+                // 清除其他搜索建议
+                this.searchSuggestions = this.searchSuggestions.filter(s => s.id === focusNodeId);
+                
+                // 更新显示
+                this.updateDisplayWithFocus();
+            }
+
+            // 聚焦模式的显示更新（只显示选中节点的路径）
+            updateDisplayWithFocus() {
+                console.log('=== 更新聚焦显示 ===');
+                console.log('聚焦节点:', this.searchResults[0]);
+                console.log('当前路径:', this.currentPath);
+                
+                // 1. 重置所有卡片状态
+                this.cards.forEach((cardInfo, nodeId) => {
+                    cardInfo.element.classList.add('hidden');
+                    cardInfo.element.classList.remove('active', 'exploration', 'solution', 'search-match', 'search-path');
+                });
+
+                // 2. 只显示当前路径上的节点
+                this.currentPath.forEach((nodeId) => {
+                    const cardInfo = this.cards.get(nodeId);
+                    if (cardInfo) {
+                        cardInfo.element.classList.remove('hidden');
+                        
+                        // 如果是目标节点，标记为搜索匹配
+                        if (nodeId === this.searchResults[0]) {
+                            cardInfo.element.classList.add('search-match');
+                        } else {
+                            cardInfo.element.classList.add('search-path');
+                        }
+                    }
+                });
+
+                // 3. 显示目标节点的直接子节点（如果有）
+                const targetNodeId = this.searchResults[0];
+                const targetNode = this.findNodeInData(mindmapData, targetNodeId);
+                
+                if (targetNode && targetNode.children) {
+                    targetNode.children.forEach(child => {
+                        const childCardInfo = this.cards.get(child.id);
+                        if (childCardInfo) {
+                            childCardInfo.element.classList.remove('hidden');
+                        }
+                    });
+                }
+                
+                // 更新连接线位置和显示状态
+                setTimeout(() => {
+                    this.updateAllConnectionPositions();
+                    this.updateConnectionLinesWithFocus();
+                }, 50); // 等待DOM更新完成
+            }
+
+            // 聚焦模式的连接线更新
+            updateConnectionLinesWithFocus() {
+                // 获取所有连接线
+                const lines = this.svg.querySelectorAll('.connection-line');
+                
+                // 重置所有连接线状态
+                lines.forEach(line => {
+                    line.classList.remove('visible', 'active', 'exploration', 'solution', 'search-path');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                });
+
+                // 只显示当前路径的连接线
+                for (let i = 0; i < this.currentPath.length - 1; i++) {
+                    const fromId = this.currentPath[i];
+                    const toId = this.currentPath[i + 1];
+                    
+                    const pathLine = Array.from(lines).find(line => 
+                        line.dataset.from === fromId && line.dataset.to === toId
+                    );
+                    
+                    if (pathLine) {
+                        pathLine.classList.add('visible', 'search-path');
+                    }
+                }
+
+                // 显示目标节点的子连接线
+                const targetNodeId = this.searchResults[0];
+                const targetNode = this.findNodeInData(mindmapData, targetNodeId);
+                
+                if (targetNode && targetNode.children) {
+                    targetNode.children.forEach(child => {
+                        const childLine = Array.from(lines).find(line => 
+                            line.dataset.from === targetNodeId && line.dataset.to === child.id
+                        );
+                        
+                        if (childLine) {
+                            childLine.classList.add('visible');
+                        }
+                    });
+                }
+            }
+
+            // 清除搜索
+            clearSearch() {
+                console.log('清除搜索');
+                this.isSearchActive = false;
+                this.isFocusMode = false;
+                this.searchResults = [];
+                this.searchSuggestions = [];
+                
+                // 清空搜索框
+                const searchInput = document.getElementById('searchInput');
+                const searchClearBtn = document.getElementById('searchClearBtn');
+                if (searchInput) searchInput.value = '';
+                if (searchClearBtn) searchClearBtn.style.display = 'none';
+                
+                // 隐藏建议框
+                this.hideSuggestions();
+                
+                // 清除所有搜索相关的样式
+                this.clearSearchStyles();
+                
+                // 恢复普通显示
+                this.updateDisplay();
+            }
+
+            // 清除搜索相关的样式
+            clearSearchStyles() {
+                // 清除所有卡片的搜索样式
+                this.cards.forEach((cardInfo, nodeId) => {
+                    cardInfo.element.classList.remove('search-match', 'search-path');
+                });
+
+                // 清除所有连接线的搜索样式
+                const lines = this.svg.querySelectorAll('.connection-line');
+                lines.forEach(line => {
+                    line.classList.remove('search-path');
+                    // 重置箭头标记为默认状态
+                    if (!line.classList.contains('active') && !line.classList.contains('solution')) {
+                        line.setAttribute('marker-end', 'url(#arrowhead)');
+                    }
+                });
+            }
+
+            // 导航到搜索结果
+            navigateToSearchResult(index) {
+                if (!this.searchResults || index >= this.searchResults.length) return;
+                
+                const targetNodeId = this.searchResults[index];
+                const newPath = this.buildPathToNode(targetNodeId);
+                
+                if (newPath) {
+                    this.currentPath = newPath;
+                    this.updateDisplayWithSearch();
+                    
+                    // 设置键盘焦点到目标节点
+                    setTimeout(() => {
+                        this.setKeyboardFocus(targetNodeId);
+                    }, 100);
+                }
+            }
+
+            // 带搜索结果的显示更新
+            updateDisplayWithSearch() {
+                console.log('=== 更新搜索显示 ===');
+                console.log('当前路径:', this.currentPath);
+                console.log('搜索结果:', this.searchResults);
+                
+                // 1. 重置所有卡片状态
+                this.cards.forEach((cardInfo, nodeId) => {
+                    cardInfo.element.classList.add('hidden');
+                    cardInfo.element.classList.remove('active', 'exploration', 'solution', 'search-match', 'search-path');
+                });
+
+                // 2. 显示并标记搜索结果
+                this.searchResults.forEach(nodeId => {
+                    const cardInfo = this.cards.get(nodeId);
+                    if (cardInfo) {
+                        cardInfo.element.classList.remove('hidden');
+                        cardInfo.element.classList.add('search-match');
+                    }
+                });
+
+                // 3. 显示搜索结果的路径
+                const searchPaths = new Set();
+                this.searchResults.forEach(nodeId => {
+                    const pathToNode = this.buildPathToNode(nodeId);
+                    if (pathToNode) {
+                        pathToNode.forEach(pathNodeId => {
+                            searchPaths.add(pathNodeId);
+                        });
+                    }
+                });
+
+                searchPaths.forEach(nodeId => {
+                    const cardInfo = this.cards.get(nodeId);
+                    if (cardInfo && !cardInfo.element.classList.contains('search-match')) {
+                        cardInfo.element.classList.remove('hidden');
+                        cardInfo.element.classList.add('search-path');
+                    }
+                });
+
+                // 4. 显示当前活跃路径中的卡片
+                this.currentPath.forEach((nodeId) => {
+                    const cardInfo = this.cards.get(nodeId);
+                    if (cardInfo) {
+                        cardInfo.element.classList.remove('hidden');
+                        if (!cardInfo.element.classList.contains('search-match') && 
+                            !cardInfo.element.classList.contains('search-path')) {
+                            cardInfo.element.classList.add('active');
+                        }
+                    }
+                });
+
+                // 5. 显示当前节点的直接子节点
+                const currentNodeId = this.currentPath[this.currentPath.length - 1];
+                const currentNode = this.findNodeInData(mindmapData, currentNodeId);
+                
+                if (currentNode && currentNode.children) {
+                    currentNode.children.forEach(child => {
+                        const childCardInfo = this.cards.get(child.id);
+                        if (childCardInfo) {
+                            childCardInfo.element.classList.remove('hidden');
+                        }
+                    });
+                }
+                
+                // 更新连接线位置和显示状态
+                setTimeout(() => {
+                    this.updateAllConnectionPositions();
+                    this.updateConnectionLinesWithSearch();
+                }, 50); // 等待DOM更新完成
+            }
+
+            // 带搜索功能的连接线更新
+            updateConnectionLinesWithSearch() {
+                // 获取所有连接线
+                const lines = this.svg.querySelectorAll('.connection-line');
+                
+                // 重置所有连接线状态
+                lines.forEach(line => {
+                    line.classList.remove('visible', 'active', 'exploration', 'solution', 'search-path');
+                    line.setAttribute('marker-end', 'url(#arrowhead)');
+                });
+
+                // 显示搜索路径的连接线
+                const searchPaths = new Set();
+                this.searchResults.forEach(nodeId => {
+                    const pathToNode = this.buildPathToNode(nodeId);
+                    if (pathToNode) {
+                        for (let i = 0; i < pathToNode.length - 1; i++) {
+                            const fromId = pathToNode[i];
+                            const toId = pathToNode[i + 1];
+                            
+                            const pathLine = Array.from(lines).find(line => 
+                                line.dataset.from === fromId && line.dataset.to === toId
+                            );
+                            
+                            if (pathLine) {
+                                pathLine.classList.add('visible', 'search-path');
+                            }
+                        }
+                    }
+                });
+
+                // 显示当前活跃路径的连接线
+                for (let i = 0; i < this.currentPath.length - 1; i++) {
+                    const fromId = this.currentPath[i];
+                    const toId = this.currentPath[i + 1];
+                    
+                    const pathLine = Array.from(lines).find(line => 
+                        line.dataset.from === fromId && line.dataset.to === toId
+                    );
+                    
+                    if (pathLine) {
+                        if (!pathLine.classList.contains('search-path')) {
+                            pathLine.classList.add('visible', 'active');
+                            pathLine.setAttribute('marker-end', 'url(#activeArrow)');
+                        }
+                    }
+                }
+
+                // 显示当前节点的子连接线
+                const currentNodeId = this.currentPath[this.currentPath.length - 1];
+                const currentNode = this.findNodeInData(mindmapData, currentNodeId);
+                
+                if (currentNode && currentNode.children) {
+                    currentNode.children.forEach(child => {
+                        const childLine = Array.from(lines).find(line => 
+                            line.dataset.from === currentNodeId && line.dataset.to === child.id
+                        );
+                        
+                        if (childLine && !childLine.classList.contains('search-path')) {
+                            childLine.classList.add('visible');
+                        }
+                    });
+                }
             }
 
             // 高亮显示特定的探索路径
@@ -1749,6 +2816,74 @@ const mindmapMarkdown = `
                     }
                 }
             }
+
+            // 显示检查清单弹出框
+            showChecklist(nodeData, indicatorElement) {
+                // 先关闭已存在的检查清单弹出框
+                this.hideChecklist();
+                
+                if (!nodeData.checklist || nodeData.checklist.length === 0) {
+                    return;
+                }
+                
+                // 创建弹出框
+                const popup = document.createElement('div');
+                popup.className = 'checklist-popup';
+                popup.id = 'checklistPopup';
+                
+                // 添加标题
+                const title = document.createElement('div');
+                title.className = 'checklist-title';
+                title.textContent = `${nodeData.text} - 检查清单`;
+                popup.appendChild(title);
+                
+                // 添加关闭按钮
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'close-btn';
+                closeBtn.innerHTML = '×';
+                closeBtn.addEventListener('click', () => this.hideChecklist());
+                popup.appendChild(closeBtn);
+                
+                // 添加检查清单项
+                nodeData.checklist.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `checklist-item ${item.level > 0 ? 'level-1' : ''}`;
+                    itemDiv.textContent = item.text;
+                    popup.appendChild(itemDiv);
+                });
+                
+                // 定位弹出框
+                const indicatorRect = indicatorElement.getBoundingClientRect();
+                const containerRect = this.container.getBoundingClientRect();
+                
+                popup.style.left = (indicatorRect.left - containerRect.left + 30) + 'px';
+                popup.style.top = (indicatorRect.top - containerRect.top - 10) + 'px';
+                
+                // 添加到容器中
+                this.container.appendChild(popup);
+                
+                // 添加点击外部关闭的事件监听
+                setTimeout(() => {
+                    document.addEventListener('click', this.handleChecklistOutsideClick.bind(this), true);
+                }, 100);
+            }
+
+            // 隐藏检查清单弹出框
+            hideChecklist() {
+                const existingPopup = document.getElementById('checklistPopup');
+                if (existingPopup) {
+                    existingPopup.remove();
+                    document.removeEventListener('click', this.handleChecklistOutsideClick.bind(this), true);
+                }
+            }
+
+            // 处理点击外部关闭检查清单
+            handleChecklistOutsideClick(event) {
+                const popup = document.getElementById('checklistPopup');
+                if (popup && !popup.contains(event.target)) {
+                    this.hideChecklist();
+                }
+            }
         }
 
         // 全局函数
@@ -1757,6 +2892,12 @@ const mindmapMarkdown = `
                 window.mindmapRenderer.resetToInitialState();
             } else {
             location.reload();
+            }
+        }
+
+        function clearSearch() {
+            if (window.mindmapRenderer) {
+                window.mindmapRenderer.clearSearch();
             }
         }
 
@@ -1826,6 +2967,22 @@ const mindmapMarkdown = `
             }
             if (e.key === 'c' || e.key === 'C') {
                 centerView();
+            }
+            // Ctrl+F 或 Cmd+F 激活搜索
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+            // Escape 清除搜索（如果搜索框没有焦点）
+            if (e.key === 'Escape') {
+                const searchInput = document.getElementById('searchInput');
+                if (searchInput && document.activeElement !== searchInput) {
+                    clearSearch();
+                }
             }
             // 移除了回退键处理，现在由键盘导航系统统一处理方向键
         });
